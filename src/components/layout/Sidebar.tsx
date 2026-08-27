@@ -1,12 +1,19 @@
 import {
   BarChart3,
+  Banknote,
+  Cog,
   CreditCard,
   FileText,
   Home,
   Landmark,
   Link2,
+  ListChecks,
   Package,
+  Percent,
+  Plug,
+  RefreshCw,
   Settings,
+  Share2,
   Tag,
   Users,
   Wallet,
@@ -56,6 +63,21 @@ const catalogGroup: NavGroup = {
 
 const trailingNavItems: NavItem[] = [{ to: '/reports', label: 'Reports', icon: BarChart3, disabled: true }]
 
+const configureGroup: NavGroup = {
+  label: 'Configure',
+  icon: Settings,
+  items: [
+    { to: '/configure/settings', label: 'Settings', icon: Cog, disabled: true },
+    { to: '/configure/payment-gateways', label: 'Payment Gateways', icon: Banknote, disabled: true },
+    { to: '/configure/integrations', label: 'Integrations', icon: Plug },
+    { to: '/configure/custom-fields', label: 'Custom Fields', icon: ListChecks, disabled: true },
+    { to: '/configure/invoicing', label: 'Invoicing', icon: FileText, disabled: true },
+    { to: '/configure/referrals', label: 'Referrals', icon: Share2, disabled: true },
+    { to: '/configure/taxes', label: 'Taxes', icon: Percent, disabled: true },
+    { to: '/configure/retries-dunning', label: 'Retries & Dunning', icon: RefreshCw, disabled: true },
+  ],
+}
+
 export function Sidebar() {
   return (
     <aside className="flex h-screen w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-white py-4">
@@ -74,12 +96,12 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <NavButton item={{ to: '/settings', label: 'Settings', icon: Settings, disabled: true }} />
+      <NavGroupMenu group={configureGroup} align="end" />
     </aside>
   )
 }
 
-function NavGroupMenu({ group }: { group: NavGroup }) {
+function NavGroupMenu({ group, align = 'start' }: { group: NavGroup; align?: 'start' | 'end' }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
@@ -117,7 +139,10 @@ function NavGroupMenu({ group }: { group: NavGroup }) {
       {open && (
         <div
           role="menu"
-          className="absolute left-full top-0 z-20 ml-2 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1.5 shadow-lg"
+          className={cn(
+            'absolute left-full z-20 ml-2 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1.5 shadow-lg',
+            align === 'end' ? 'bottom-0' : 'top-0',
+          )}
         >
           <div className="px-3 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-wide text-ink-subtle">
             {group.label}
