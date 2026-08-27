@@ -4,7 +4,10 @@ import {
   FileText,
   Home,
   Landmark,
+  Link2,
+  Package,
   Settings,
+  Tag,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -40,6 +43,17 @@ const billingGroup: NavGroup = {
   ],
 }
 
+const catalogGroup: NavGroup = {
+  label: 'Catalog',
+  icon: Package,
+  items: [
+    { to: '/products', label: 'Products', icon: Package },
+    { to: '/offers', label: 'Offers', icon: Tag, disabled: true },
+    { to: '/public-signup-pages', label: 'Public Signup Pages', icon: Link2, disabled: true },
+    { to: '/offer-signup-pages', label: 'Offer Signup Pages', icon: Link2, disabled: true },
+  ],
+}
+
 const trailingNavItems: NavItem[] = [{ to: '/reports', label: 'Reports', icon: BarChart3, disabled: true }]
 
 export function Sidebar() {
@@ -53,7 +67,8 @@ export function Sidebar() {
         {navItems.map((item) => (
           <NavButton key={item.to} item={item} />
         ))}
-        <BillingNavGroup group={billingGroup} />
+        <NavGroupMenu group={catalogGroup} />
+        <NavGroupMenu group={billingGroup} />
         {trailingNavItems.map((item) => (
           <NavButton key={item.to} item={item} />
         ))}
@@ -64,7 +79,7 @@ export function Sidebar() {
   )
 }
 
-function BillingNavGroup({ group }: { group: NavGroup }) {
+function NavGroupMenu({ group }: { group: NavGroup }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
