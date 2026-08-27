@@ -1,10 +1,11 @@
-import { KeyRound, LogIn, Plug, Unplug } from 'lucide-react'
+import { KeyRound, LogIn, Plug, RefreshCw, Unplug } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { useSearchParams } from 'react-router-dom'
 import { ConnectIntegrationDialog } from '@/components/integrations/ConnectIntegrationDialog'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { disconnectIntegration, listIntegrations } from '@/lib/api/integrations'
+import { disconnectIntegration, listIntegrations, refreshIntegrationToken } from '@/lib/api/integrations'
 import type { Integration, IntegrationProvider } from '@/types/integrations'
 
 const PROVIDER_STYLES: Record<IntegrationProvider, { letter: string; className: string; description: string }> = {
@@ -20,12 +21,28 @@ const PROVIDER_STYLES: Record<IntegrationProvider, { letter: string; className: 
   },
 }
 
+const PROVIDER_DISPLAY_NAMES: Record<IntegrationProvider, string> = {
+  quickbooks: 'QuickBooks',
+  hubspot: 'HubSpot',
+}
+
+function formatTokenExpiry(tokenExpiresAt: string | null): string | null {
+  if (!tokenExpiresAt) return null
+  const diffMs = new Date(tokenExpiresAt).getTime() - Date.now()
+  if (diffMs <= 0) return 'Access token expired — refresh to keep syncing'
+  const minutes = Math.round(diffMs / 60000)
+  if (minutes < 60) return `Access token expires in ${minutes}m`
+  return `Access token expires in ${Math.round(minutes / 60)}h`
+}
+
 export function Integrations() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [connectingTarget, setConnectingTarget] = useState<Integration | null>(null)
-  const [disconnectingProvider, setDisconnectingProvider] = useState<IntegrationProvider | null>(null)
+  const [busyProvider, setBusyProvider] = useState<IntegrationProvider | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const load = () => {
     setLoading(true)
@@ -38,20 +55,49 @@ export function Integrations() {
 
   useEffect(load, [])
 
+  // Picks up the redirect back from integrations-oauth-callback, which
+  // encodes the outcome as ?connected=<provider> or ?error=<message>.
+  useEffect(() => {
+    const connectedProvider = searchParams.get('connected') as IntegrationProvider | null
+    const oauthError = searchParams.get('error')
+    if (connectedProvider) {
+      setNotice(`${PROVIDER_DISPLAY_NAMES[connectedProvider] ?? connectedProvider} connected successfully.`)
+    } else if (oauthError) {
+      setError(oauthError)
+    }
+    if (connectedProvider || oauthError) {
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
   const handleConnected = (updated: Integration) => {
     setIntegrations((prev) => prev.map((i) => (i.provider === updated.provider ? updated : i)))
     setConnectingTarget(null)
   }
 
   const handleDisconnect = async (provider: IntegrationProvider) => {
-    setDisconnectingProvider(provider)
+    setBusyProvider(provider)
+    setError(null)
     try {
       const updated = await disconnectIntegration(provider)
       setIntegrations((prev) => prev.map((i) => (i.provider === updated.provider ? updated : i)))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect integration.')
     } finally {
-      setDisconnectingProvider(null)
+      setBusyProvider(null)
+    }
+  }
+
+  const handleRefreshToken = async (provider: IntegrationProvider) => {
+    setBusyProvider(provider)
+    setError(null)
+    try {
+      const updated = await refreshIntegrationToken(provider)
+      setIntegrations((prev) => prev.map((i) => (i.provider === updated.provider ? updated : i)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh token.')
+    } finally {
+      setBusyProvider(null)
     }
   }
 
@@ -63,6 +109,11 @@ export function Integrations() {
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        {notice && (
+          <div className="mb-4 rounded-lg border border-success-700/20 bg-success-50 px-4 py-3 text-sm text-success-700">
+            {notice}
+          </div>
+        )}
         {error && (
           <div className="mb-4 rounded-lg border border-danger-600/20 bg-danger-50 px-4 py-3 text-sm text-danger-600">
             {error}
@@ -76,6 +127,10 @@ export function Integrations() {
             {integrations.map((integration) => {
               const style = PROVIDER_STYLES[integration.provider]
               const connected = integration.status === 'connected'
+              const busy = busyProvider === integration.provider
+              const tokenExpiryLabel =
+                integration.authMethod === 'oauth' ? formatTokenExpiry(integration.tokenExpiresAt) : null
+
               return (
                 <div
                   key={integration.id}
@@ -107,22 +162,37 @@ export function Integrations() {
                             ? integration.accountEmail || 'Signed in'
                             : 'Connected via API key'}
                         </div>
+                        {tokenExpiryLabel && <div>{tokenExpiryLabel}</div>}
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-2">
                     {connected ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleDisconnect(integration.provider)}
-                        disabled={disconnectingProvider === integration.provider}
-                      >
-                        <Unplug className="h-4 w-4" />
-                        {disconnectingProvider === integration.provider ? 'Disconnecting...' : 'Disconnect'}
-                      </Button>
+                      <>
+                        {integration.authMethod === 'oauth' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleRefreshToken(integration.provider)}
+                            disabled={busy}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            {busy ? 'Refreshing...' : 'Refresh token'}
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleDisconnect(integration.provider)}
+                          disabled={busy}
+                        >
+                          <Unplug className="h-4 w-4" />
+                          {busy ? 'Disconnecting...' : 'Disconnect'}
+                        </Button>
+                      </>
                     ) : (
                       <Button size="sm" className="w-full" onClick={() => setConnectingTarget(integration)}>
                         <Plug className="h-4 w-4" />

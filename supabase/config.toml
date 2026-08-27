@@ -1,0 +1,14 @@
+project_id = "app2"
+
+# integrations-oauth-start is reached by a top-level browser navigation
+# (window.location.href) and integrations-oauth-callback is hit directly by
+# QuickBooks/HubSpot's server — neither request carries a Supabase
+# Authorization header, so JWT verification must be off for these two only.
+# The rest (integrations-connect-credentials, integrations-disconnect,
+# integrations-refresh-token) are called via supabase.functions.invoke() from
+# the app, which attaches the anon key, so they keep the default verify_jwt.
+[functions.integrations-oauth-start]
+verify_jwt = false
+
+[functions.integrations-oauth-callback]
+verify_jwt = false

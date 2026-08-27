@@ -11,9 +11,8 @@ export interface Integration {
   status: IntegrationStatus
   authMethod: IntegrationAuthMethod | null
   accountEmail: string | null
-  apiKey: string | null
-  apiSecret: string | null
-  refreshToken: string | null
+  providerAccountId: string | null
+  tokenExpiresAt: string | null
   connectedAt: string | null
   updatedAt: string
 }

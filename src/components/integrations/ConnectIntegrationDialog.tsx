@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { connectIntegrationWithCredentials, connectIntegrationWithLogin } from '@/lib/api/integrations'
+import { connectIntegrationWithCredentials, getOAuthLoginUrl } from '@/lib/api/integrations'
 import type { Integration } from '@/types/integrations'
 
 export function ConnectIntegrationDialog({
@@ -17,7 +17,6 @@ export function ConnectIntegrationDialog({
   onClose: () => void
   onConnected: (integration: Integration) => void
 }) {
-  const [email, setEmail] = useState('')
   const [showDeveloperOptions, setShowDeveloperOptions] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [apiSecret, setApiSecret] = useState('')
@@ -26,7 +25,6 @@ export function ConnectIntegrationDialog({
   const [error, setError] = useState<string | null>(null)
 
   const reset = () => {
-    setEmail('')
     setShowDeveloperOptions(false)
     setApiKey('')
     setApiSecret('')
@@ -40,21 +38,6 @@ export function ConnectIntegrationDialog({
   }
 
   if (!integration) return null
-
-  const handleLogin = async () => {
-    if (!email.trim()) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      const updated = await connectIntegrationWithLogin(integration.provider, email.trim())
-      onConnected(updated)
-      reset()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to connect ${integration.displayName}.`)
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   const handleDeveloperConnect = async () => {
     if (!apiKey.trim()) return
@@ -80,31 +63,23 @@ export function ConnectIntegrationDialog({
       open={open}
       onClose={handleClose}
       title={`Connect ${integration.displayName}`}
-      subtitle="Sign in with your account, or use developer credentials for an API-only connection."
+      subtitle="Log in with your account, or use developer credentials for an API-only connection."
     >
       <div className="space-y-5">
         <div className="space-y-3 rounded-lg border border-slate-200 p-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Account email</label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={`you@company.com`}
-              autoFocus
-            />
-          </div>
           <Button
             type="button"
             className="w-full"
-            onClick={handleLogin}
-            disabled={!email.trim() || submitting}
+            onClick={() => {
+              window.location.href = getOAuthLoginUrl(integration.provider)
+            }}
           >
             <LogIn className="h-4 w-4" />
-            {submitting ? 'Connecting...' : `Log in to ${integration.displayName}`}
+            Log in to {integration.displayName}
           </Button>
           <p className="text-xs text-ink-subtle">
-            You'll be redirected to {integration.displayName} to sign in and authorize access.
+            You'll be redirected to {integration.displayName} to sign in and authorize access. Your{' '}
+            {integration.displayName} password is entered on their site — this app never sees it.
           </p>
         </div>
 
