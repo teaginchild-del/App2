@@ -23,7 +23,7 @@ function mapCustomer(row: Record<string, unknown>): BillingCustomer {
   }
 }
 
-function mapProduct(row: Record<string, unknown>): Product {
+export function mapProduct(row: Record<string, unknown>): Product {
   return {
     id: row.id as string,
     adminId: (row.admin_id as string | null) ?? null,
@@ -35,6 +35,27 @@ function mapProduct(row: Record<string, unknown>): Product {
     isActive: row.is_active as boolean,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+    productFamilyId: (row.product_family_id as string | null) ?? null,
+    apiHandle: (row.api_handle as string | null) ?? null,
+    itemCategory: (row.item_category as string | null) ?? null,
+    department: (row.department as string | null) ?? null,
+    enableTaxes: (row.enable_taxes as boolean | null) ?? false,
+    requirePaymentMethod: (row.require_payment_method as boolean | null) ?? false,
+    requireBillingAddress: (row.require_billing_address as boolean | null) ?? false,
+    createV2SignupPage: (row.create_v2_signup_page as boolean | null) ?? false,
+    enableUrlParams: (row.enable_url_params as boolean | null) ?? false,
+    priceInterval: (row.price_interval as number | null) ?? 1,
+    priceIntervalUnit: (row.price_interval_unit as Product['priceIntervalUnit']) ?? 'month',
+    taxIncluded: (row.tax_included as boolean | null) ?? false,
+    hasTrial: (row.has_trial as boolean | null) ?? false,
+    trialInterval: (row.trial_interval as number | null) ?? null,
+    trialIntervalUnit: (row.trial_interval_unit as Product['trialIntervalUnit']) ?? null,
+    trialPriceCents: (row.trial_price_cents as number | null) ?? null,
+    hasSetupFee: (row.has_setup_fee as boolean | null) ?? false,
+    setupFeeCents: (row.setup_fee_cents as number | null) ?? null,
+    hasTerm: (row.has_term as boolean | null) ?? false,
+    termInterval: (row.term_interval as number | null) ?? null,
+    termIntervalUnit: (row.term_interval_unit as Product['termIntervalUnit']) ?? null,
   }
 }
 

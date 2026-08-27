@@ -1,4 +1,7 @@
-export type BillingInterval = 'weekly' | 'monthly' | 'quarterly' | 'annual' | 'one_time'
+export type BillingInterval = 'weekly' | 'monthly' | 'quarterly' | 'annual' | 'one_time' | 'daily'
+
+export type CatalogIntervalUnit = 'month' | 'day'
+export type TermIntervalUnit = 'month' | 'day' | 'year'
 
 export type BillingCustomerStatus = 'active' | 'trial' | 'past_due' | 'canceled' | 'paused'
 
@@ -25,6 +28,40 @@ export interface Product {
   billingInterval: BillingInterval
   accountingCode: string | null
   isActive: boolean
+  createdAt: string
+  updatedAt: string
+
+  // Catalog fields — populated by the Products management UI. Optional so
+  // the lighter-weight Subscription-flow product records stay valid.
+  productFamilyId?: string | null
+  apiHandle?: string | null
+  itemCategory?: string | null
+  department?: string | null
+  enableTaxes?: boolean
+  requirePaymentMethod?: boolean
+  requireBillingAddress?: boolean
+  createV2SignupPage?: boolean
+  enableUrlParams?: boolean
+  priceInterval?: number
+  priceIntervalUnit?: CatalogIntervalUnit
+  taxIncluded?: boolean
+  hasTrial?: boolean
+  trialInterval?: number | null
+  trialIntervalUnit?: CatalogIntervalUnit | null
+  trialPriceCents?: number | null
+  hasSetupFee?: boolean
+  setupFeeCents?: number | null
+  hasTerm?: boolean
+  termInterval?: number | null
+  termIntervalUnit?: TermIntervalUnit | null
+}
+
+export interface ProductFamily {
+  id: string
+  adminId: string | null
+  name: string
+  description: string | null
+  apiHandle: string
   createdAt: string
   updatedAt: string
 }
