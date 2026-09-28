@@ -1,16 +1,19 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { BankDepositDetail } from '@/pages/BankDepositDetail'
 import { Banking } from '@/pages/Banking'
 import { BillingRun } from '@/pages/BillingRun'
 import { ContractDetail } from '@/pages/ContractDetail'
 import { ContractNew } from '@/pages/ContractNew'
 import { Contracts } from '@/pages/Contracts'
 import { Customers } from '@/pages/Customers'
+import { DepositDetail } from '@/pages/DepositDetail'
 import { Home } from '@/pages/Home'
 import { Integrations } from '@/pages/Integrations'
 import { InvoiceDetail } from '@/pages/InvoiceDetail'
 import { InvoiceNew } from '@/pages/InvoiceNew'
 import { Invoices } from '@/pages/Invoices'
+import { PaymentDetail } from '@/pages/PaymentDetail'
 import { Payments } from '@/pages/Payments'
 import { ProductNew } from '@/pages/ProductNew'
 import { Products } from '@/pages/Products'
@@ -45,9 +48,12 @@ function App() {
         <Route path="/invoices/new" element={<InvoiceNew />} />
         <Route path="/invoices/:invoiceId" element={<InvoiceDetail />} />
         <Route path="/payments" element={<Payments />} />
+        <Route path="/payments/:paymentId" element={<PaymentDetail />} />
+        <Route path="/payments/deposits/:depositId" element={<DepositDetail />} />
         <Route path="/billing-run" element={<BillingRun />} />
         <Route path="/receivables" element={<Receivables />} />
         <Route path="/banking" element={<Banking />} />
+        <Route path="/banking/deposits/:bankDepositId" element={<BankDepositDetail />} />
         <Route path="/revenue" element={<Revenue />} />
         <Route path="/configure/integrations" element={<Integrations />} />
         <Route path="*" element={<Navigate to="/" replace />} />

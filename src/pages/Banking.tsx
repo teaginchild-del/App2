@@ -1,5 +1,6 @@
 import { Landmark, Link2, Scale, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ErrorBanner, NoticeBanner, Section, SimpleTable, Td } from '@/components/order-to-cash/layout'
 import { StatementLineStatusBadge } from '@/components/order-to-cash/StatusBadges'
@@ -26,6 +27,7 @@ import { useAction, useAsync } from '@/lib/use-async'
 const SOURCE_LABELS = { stripe_payout: 'Stripe payout', check_batch: 'Check batch', individual: 'Individual' } as const
 
 export function Banking() {
+  const navigate = useNavigate()
   const { data, loading, error, reload } = useAsync(
     () => Promise.all([listUndepositedReceipts(), listBankDeposits(), listStatementLines()]),
     [],
@@ -196,7 +198,18 @@ export function Banking() {
                 </Td>
                 <Td>{formatDate(isoDate(r.receivedOn))}</Td>
                 <Td className="font-medium">{r.customerName}</Td>
-                <Td className="capitalize">{r.kind}</Td>
+                <Td className="capitalize">
+                  <Link
+                    className="text-brand-600 hover:underline"
+                    to={
+                      r.kind === 'payment'
+                        ? `/payments/${r.id.split(':')[1]}`
+                        : `/payments/deposits/${r.id.split(':')[1]}`
+                    }
+                  >
+                    {r.kind}
+                  </Link>
+                </Td>
                 <Td>{r.method.toUpperCase()}</Td>
                 <Td>{r.reference ?? r.stripePayoutId ?? '—'}</Td>
                 <Td>{formatCents(r.amount)}</Td>
@@ -293,7 +306,11 @@ export function Banking() {
             empty={deposits.length === 0 && 'No bank deposits yet.'}
           >
             {deposits.map((d) => (
-              <tr key={d.id}>
+              <tr
+                key={d.id}
+                className="cursor-pointer hover:bg-brand-50/40"
+                onClick={() => navigate(`/banking/deposits/${d.id}`)}
+              >
                 <Td>{formatDate(d.depositDate)}</Td>
                 <Td>{SOURCE_LABELS[d.source]}</Td>
                 <Td>{d.reference ?? '—'}</Td>

@@ -82,12 +82,28 @@ export async function listDeposits(filter: { salesOrderId?: string } = {}): Prom
   return (data ?? []).map(mapDeposit)
 }
 
+const PAYMENT_SELECT = `*, customer:customers(${CUSTOMER_COLUMNS}), payment_applications(invoice_id, amount_cents, invoice:invoices(invoice_number))`
+
+export async function getPayment(id: string): Promise<CustomerPayment> {
+  const { data, error } = await supabase.from('customer_payments').select(PAYMENT_SELECT).eq('id', id).single()
+  if (error) throw error
+  return mapPayment(data)
+}
+
+export async function getDeposit(id: string): Promise<CustomerDeposit> {
+  const { data, error } = await supabase
+    .from('customer_deposits')
+    .select(`*, customer:customers(${CUSTOMER_COLUMNS})`)
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return mapDeposit(data)
+}
+
 export async function listPayments(): Promise<CustomerPayment[]> {
   const { data, error } = await supabase
     .from('customer_payments')
-    .select(
-      `*, customer:customers(${CUSTOMER_COLUMNS}), payment_applications(invoice_id, amount_cents, invoice:invoices(invoice_number))`,
-    )
+    .select(PAYMENT_SELECT)
     .order('received_on', { ascending: false })
   if (error) throw error
   return (data ?? []).map(mapPayment)

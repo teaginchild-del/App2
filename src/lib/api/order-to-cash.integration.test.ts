@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import type { RelatedRecord } from '@/lib/api/related-records'
 
 /**
  * End-to-end order-to-cash run through the real API modules and o2c_*
@@ -25,6 +26,7 @@ describe.skipIf(!url)('order-to-cash against Postgres', () => {
     bank: typeof import('@/lib/api/banking')
     ar: typeof import('@/lib/api/receivables')
     ct: typeof import('@/lib/api/contracts')
+    rel: typeof import('@/lib/api/related-records')
     db: (typeof import('@/lib/supabase'))['supabase']
   }
   let customerId: string
@@ -38,6 +40,7 @@ describe.skipIf(!url)('order-to-cash against Postgres', () => {
       bank: await import('@/lib/api/banking'),
       ar: await import('@/lib/api/receivables'),
       ct: await import('@/lib/api/contracts'),
+      rel: await import('@/lib/api/related-records'),
       db: (await import('@/lib/supabase')).supabase,
     }
     const customer = await api.billing.createCustomer({
@@ -405,5 +408,131 @@ describe.skipIf(!url)('order-to-cash against Postgres', () => {
     const pending = terminatedOrder.lines[0].billingEvents.filter((e) => e.status === 'pending')
     expect(pending.every((e) => (e.periodStart ?? '') <= '2027-06-30')).toBe(true)
     expect((await ct.getContract(renewal.id)).status).toBe('terminated')
+  })
+
+  it('links every billing object to its upstream origin and downstream impact', async () => {
+    const { inv, cash, bank, ct, rel, db } = api
+    const kinds = (records: Array<{ kind: string }>) => records.map((r) => r.kind)
+    const find = (records: RelatedRecord[], kind: string) => records.find((r) => r.kind === kind)
+
+    // Contract → billing order → invoice → payment → bank deposit → statement line,
+    // plus a deposit taken on the order and applied to the invoice.
+    const contractId = await ct.createContract(
+      {
+        customerId,
+        startDate: '2028-01-01',
+        endDate: '2028-12-31',
+        terms: 'Net 30',
+        autoRenew: false,
+        renewalTermMonths: 12,
+        upliftPercent: 0,
+        renewalLeadDays: 30,
+        items: [
+          {
+            productId: null,
+            description: 'Platform',
+            quantity: 1,
+            unitPriceCents: 100000,
+            frequencyMonths: 12,
+            timing: 'advance',
+            revenueTreatment: 'ratable',
+          },
+        ],
+      },
+      { activate: true },
+    )
+    const { salesOrderId } = await ct.getContractLinks(contractId)
+    const orderId = salesOrderId!
+    await cash.recordCustomerDeposit({
+      customerId,
+      salesOrderId: orderId,
+      amountCents: 40000,
+      method: 'wire',
+      receivedOn: '2027-12-20',
+      reference: `REL-DEP-${orderId.slice(0, 6)}`,
+    })
+    const invoiceId = await inv.billSalesOrder(orderId, { asOf: '2028-01-01' })
+    const paymentId = await cash.receiveCustomerPayment({
+      idempotencyKey: `test:${crypto.randomUUID()}`,
+      customerId,
+      amountCents: 60000 + 2500,
+      method: 'wire',
+      receivedOn: '2028-01-10',
+      applications: [{ invoiceId, amountCents: 60000 }],
+    })
+    const receipts = (await bank.listUndepositedReceipts()).filter(
+      (r) => r.id === `payment:${paymentId}` || r.reference === `REL-DEP-${orderId.slice(0, 6)}`,
+    )
+    expect(receipts).toHaveLength(2)
+    const bankDepositId = await bank.createBankDeposit(receipts, { depositDate: '2028-01-11' })
+    await bank.importStatementCsv(`Date,Description,Amount,ID\n2028-01-12,WIRE BATCH,1025.00,rel-${bankDepositId}\n`)
+    const [line] = (await bank.listStatementLines()).filter((l) => l.externalId === `rel-${bankDepositId}`)
+    await bank.matchStatementLine(line.id, bankDepositId)
+    const [deposit] = await cash.listDeposits({ salesOrderId: orderId })
+
+    const contract = await rel.getRelatedRecords('contract', contractId)
+    expect(kinds(contract.upstream)).toEqual(['customer'])
+    expect(kinds(contract.downstream)).toEqual(['sales_order', 'invoice'])
+    expect(find(contract.downstream, 'invoice')?.id).toBe(invoiceId)
+
+    const order = await rel.getRelatedRecords('sales_order', orderId)
+    expect(kinds(order.upstream)).toEqual(['customer', 'contract'])
+    expect(kinds(order.downstream)).toEqual(['customer_deposit', 'invoice', 'customer_payment'])
+    expect(find(order.downstream, 'customer_payment')?.amountCents).toBe(60000) // applied to this order's invoice
+
+    const invoice = await rel.getRelatedRecords('invoice', invoiceId)
+    expect(kinds(invoice.upstream)).toEqual(['customer', 'contract', 'sales_order', 'customer_deposit'])
+    expect(find(invoice.upstream, 'customer_deposit')?.amountCents).toBe(40000)
+    expect(kinds(invoice.downstream)).toEqual(['customer_payment', 'bank_deposit'])
+
+    const dep = await rel.getRelatedRecords('customer_deposit', deposit.id)
+    expect(kinds(dep.upstream)).toEqual(['customer', 'contract', 'sales_order'])
+    expect(kinds(dep.downstream)).toEqual(['invoice', 'bank_deposit', 'statement_line'])
+
+    const pay = await rel.getRelatedRecords('customer_payment', paymentId)
+    expect(kinds(pay.upstream)).toEqual(['customer', 'invoice'])
+    expect(kinds(pay.downstream)).toEqual(['credit', 'bank_deposit', 'statement_line'])
+    expect(find(pay.downstream, 'credit')?.amountCents).toBe(2500)
+
+    const bd = await rel.getRelatedRecords('bank_deposit', bankDepositId)
+    expect(kinds(bd.upstream).sort()).toEqual(['customer_deposit', 'customer_payment'])
+    expect(kinds(bd.downstream)).toEqual(['statement_line'])
+
+    // A renewal shows up downstream of the old term and upstream of the new one.
+    const renewalId = crypto.randomUUID()
+    await db.from('contracts').insert({
+      id: renewalId,
+      customer_id: customerId,
+      start_date: '2029-01-01',
+      end_date: '2029-12-31',
+      renewed_from_id: contractId,
+    })
+    expect(kinds((await rel.getRelatedRecords('contract', contractId)).downstream)).toContain('contract')
+    expect(kinds((await rel.getRelatedRecords('contract', renewalId)).upstream)).toEqual(['customer', 'contract'])
+
+    // Subscription → its invoices.
+    const { data: product } = await db.from('products').select('id').limit(1).single()
+    const { data: sub } = await db
+      .from('subscriptions')
+      .insert({
+        customer_id: customerId,
+        product_id: product!.id,
+        term_type: 'evergreen',
+        term_start_date: '2028-01-01',
+        first_billing_date: '2028-01-01',
+      })
+      .select('id')
+      .single()
+    await db.from('invoices').insert({ customer_id: customerId, subscription_id: sub!.id, amount_due_cents: 100 })
+    const subscription = await rel.getRelatedRecords('subscription', sub!.id as string)
+    expect(kinds(subscription.upstream)).toEqual(['customer'])
+    expect(kinds(subscription.downstream)).toEqual(['invoice'])
+    const [subInvoice] = await inv
+      .listInvoices({ customerId })
+      .then((xs) => xs.filter((x) => x.subscriptionId === sub!.id))
+    expect(kinds((await rel.getRelatedRecords('invoice', subInvoice.id)).upstream)).toEqual([
+      'customer',
+      'subscription',
+    ])
   })
 })

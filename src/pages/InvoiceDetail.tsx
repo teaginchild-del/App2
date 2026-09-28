@@ -1,6 +1,6 @@
 import { BellOff, BellRing, Send, Wallet } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { RecordPaymentDialog } from '@/components/order-to-cash/CashDialogs'
 import {
@@ -14,6 +14,7 @@ import {
   Td,
 } from '@/components/order-to-cash/layout'
 import { TermsSelect } from '@/components/order-to-cash/inputs'
+import { RelatedRecordsCard } from '@/components/order-to-cash/RelatedRecordsCard'
 import { InvoiceStatusBadge } from '@/components/order-to-cash/StatusBadges'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -34,6 +35,7 @@ const GL_LABELS: Record<InvoiceGlLine['account'], string> = {
 
 export function InvoiceDetail() {
   const { invoiceId = '' } = useParams()
+  const navigate = useNavigate()
   const { data, loading, error, reload } = useAsync(async () => {
     const invoice = await getInvoice(invoiceId)
     const [activity, customers] = await Promise.all([getInvoiceActivity(invoice), listO2cCustomers()])
@@ -148,7 +150,11 @@ export function InvoiceDetail() {
               empty={activity.payments.length + activity.deposits.length === 0 && 'Nothing applied yet.'}
             >
               {activity.deposits.map((d) => (
-                <tr key={`d-${d.depositId}`}>
+                <tr
+                  key={`d-${d.depositId}`}
+                  className="cursor-pointer hover:bg-brand-50/40"
+                  onClick={() => navigate(`/payments/deposits/${d.depositId}`)}
+                >
                   <Td>{formatDate(d.receivedOn)}</Td>
                   <Td>Deposit</Td>
                   <Td>{d.method.toUpperCase()}</Td>
@@ -157,7 +163,11 @@ export function InvoiceDetail() {
                 </tr>
               ))}
               {activity.payments.map((p) => (
-                <tr key={`p-${p.paymentId}`}>
+                <tr
+                  key={`p-${p.paymentId}`}
+                  className="cursor-pointer hover:bg-brand-50/40"
+                  onClick={() => navigate(`/payments/${p.paymentId}`)}
+                >
                   <Td>{formatDate(p.receivedOn)}</Td>
                   <Td>Payment</Td>
                   <Td>{p.method.toUpperCase()}</Td>
@@ -232,6 +242,8 @@ export function InvoiceDetail() {
               </p>
             )}
           </Section>
+
+          <RelatedRecordsCard type="invoice" id={invoice.id} refreshKey={data} />
 
           {(activity.dunning.length > 0 || invoice.dunningPaused) && (
             <Section title="Reminders">

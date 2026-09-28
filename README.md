@@ -60,6 +60,11 @@ plus contracts and revenue recognition.
   reference or unique amount + date, receipt-grouping suggestions for unmatched lines, manual match/ignore.
 - **Contracts** (Billing › Contracts): per-item recurring billing through a contract-owned sales order,
   termination, and auto-renewal with price uplift (renewal order waits for approval).
+- **Related records**: every billing object (contract, sales order, subscription, invoice, payment,
+  deposit, bank deposit) has a card splitting linked records into **upstream** (origin — customer,
+  contract, order, subscription, deposits applied, invoices paid, receipts deposited) and **downstream**
+  (impact — orders, invoices, renewals, shipments, payments, refunds, unapplied credit, bank deposits,
+  statement matches, reminders), each linking to its own page.
 - **Billing Run** (Billing › Billing Run): the daily sweep — renewals, scheduled billing, revenue
   recognition, dunning. Every step is idempotent, so it is safe to re-run or catch up with a past date.
 

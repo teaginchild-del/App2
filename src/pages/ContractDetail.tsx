@@ -12,6 +12,7 @@ import {
   SimpleTable,
   Td,
 } from '@/components/order-to-cash/layout'
+import { RelatedRecordsCard } from '@/components/order-to-cash/RelatedRecordsCard'
 import {
   BillingEventStatusBadge,
   ContractStatusBadge,
@@ -178,6 +179,7 @@ export function ContractDetail() {
               </p>
             )}
           </Section>
+          <RelatedRecordsCard type="contract" id={contract.id} refreshKey={data} />
         </div>
       </div>
 

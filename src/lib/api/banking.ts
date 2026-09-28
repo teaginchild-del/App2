@@ -100,26 +100,38 @@ export async function createBankDeposit(
   })
 }
 
+function mapBankDeposit(r: Row): BankDeposit {
+  // bank_deposit_id is unique on statement lines, so PostgREST may embed an object rather than an array.
+  const linked = r.bank_statement_lines as Row | Row[] | null
+  return {
+    id: r.id as string,
+    depositDate: r.deposit_date as string,
+    amountCents: r.amount_cents as number,
+    source: r.source as BankDepositSource,
+    stripePayoutId: str(r.stripe_payout_id),
+    reference: str(r.reference),
+    createdAt: r.created_at as string,
+    matched: Array.isArray(linked) ? linked.length > 0 : linked != null,
+  }
+}
+
 export async function listBankDeposits(): Promise<BankDeposit[]> {
   const { data, error } = await supabase
     .from('bank_deposits')
     .select('*, bank_statement_lines(id)')
     .order('deposit_date', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((r) => {
-    // bank_deposit_id is unique on statement lines, so PostgREST may embed an object rather than an array.
-    const linked = r.bank_statement_lines as Row | Row[] | null
-    return {
-      id: r.id as string,
-      depositDate: r.deposit_date as string,
-      amountCents: r.amount_cents as number,
-      source: r.source as BankDepositSource,
-      stripePayoutId: str(r.stripe_payout_id),
-      reference: str(r.reference),
-      createdAt: r.created_at as string,
-      matched: Array.isArray(linked) ? linked.length > 0 : linked != null,
-    }
-  })
+  return (data ?? []).map(mapBankDeposit)
+}
+
+export async function getBankDeposit(id: string): Promise<BankDeposit> {
+  const { data, error } = await supabase
+    .from('bank_deposits')
+    .select('*, bank_statement_lines(id)')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return mapBankDeposit(data)
 }
 
 function mapStatementLine(r: Row): BankStatementLine {
