@@ -1,17 +1,24 @@
 import {
   BarChart3,
   Banknote,
+  BookOpen,
+  CalendarCheck,
+  ClipboardList,
   Cog,
   CreditCard,
+  FileSignature,
   FileText,
+  HandCoins,
   Home,
   Landmark,
   Link2,
   ListChecks,
   Package,
   Percent,
+  PlayCircle,
   Plug,
   RefreshCw,
+  Scale,
   Settings,
   Share2,
   Tag,
@@ -45,8 +52,22 @@ const billingGroup: NavGroup = {
   label: 'Billing',
   icon: Wallet,
   items: [
-    { to: '/invoices', label: 'Invoices', icon: FileText, disabled: true },
+    { to: '/sales-orders', label: 'Sales Orders', icon: ClipboardList },
+    { to: '/contracts', label: 'Contracts', icon: FileSignature },
     { to: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
+    { to: '/invoices', label: 'Invoices', icon: FileText },
+    { to: '/payments', label: 'Payments', icon: HandCoins },
+    { to: '/billing-run', label: 'Billing Run', icon: PlayCircle },
+  ],
+}
+
+const accountingGroup: NavGroup = {
+  label: 'Accounting',
+  icon: BookOpen,
+  items: [
+    { to: '/receivables', label: 'Receivables', icon: Scale },
+    { to: '/banking', label: 'Banking', icon: Landmark },
+    { to: '/revenue', label: 'Revenue Recognition', icon: CalendarCheck },
   ],
 }
 
@@ -91,6 +112,7 @@ export function Sidebar() {
         ))}
         <NavGroupMenu group={catalogGroup} />
         <NavGroupMenu group={billingGroup} />
+        <NavGroupMenu group={accountingGroup} />
         {trailingNavItems.map((item) => (
           <NavButton key={item.to} item={item} />
         ))}

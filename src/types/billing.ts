@@ -145,23 +145,55 @@ export interface SubscriptionWithRelations extends Subscription {
   coupons: SubscriptionCoupon[]
 }
 
-export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void'
+export type InvoiceStatus = 'draft' | 'open' | 'partially_paid' | 'paid' | 'void'
 
 export interface InvoiceLineItem {
   id: string
   description: string
   amountCents: number
   quantity: number
+  productId: string | null
+  salesOrderLineId: string | null
+  billingEventId: string | null
+  unitPriceCents: number | null
+  taxCents: number
+  taxable: boolean
+  revenueTreatment: 'point_in_time' | 'ratable'
+  deferred: boolean
+  revRecStart: string | null
+  revRecEnd: string | null
+}
+
+export interface InvoiceGlLine {
+  account: 'accounts_receivable' | 'revenue' | 'deferred_revenue' | 'sales_tax_payable' | 'customer_deposits'
+  debit: number
+  credit: number
 }
 
 export interface Invoice {
   id: string
+  invoiceNumber: string
   customerId: string
+  customer: (BillingCustomer & { paymentTerms: string }) | null
   subscriptionId: string | null
+  salesOrderId: string | null
   status: InvoiceStatus
+  terms: string | null
+  memo: string | null
+  subtotalCents: number
+  taxTotalCents: number
+  totalCents: number
+  depositAppliedCents: number
+  /** Total less deposits applied — what the customer was billed for. */
   amountDueCents: number
+  /** Still owed after payments. */
+  balanceCents: number
   currency: string
   issueDate: string
   dueDate: string | null
+  glLines: InvoiceGlLine[]
+  dunningLevel: number
+  dunningPaused: boolean
+  createdAt: string
   lineItems: InvoiceLineItem[]
 }

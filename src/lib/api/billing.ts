@@ -327,9 +327,10 @@ export async function createSubscription(input: CreateSubscriptionInput): Promis
 }
 
 /**
- * Stand-in for the app's (not-yet-built) invoice creation logic: drafts a
- * single invoice for the subscription's first billing period using the
- * same pricing breakdown shown in the wizard summary.
+ * Drafts a single invoice for the subscription's first billing period using
+ * the same pricing breakdown shown in the wizard summary. The draft is
+ * issued (due date from terms, totals, journal entry) from the Invoices
+ * screen via issueDraftInvoice in src/lib/api/invoicing.ts.
  */
 async function createDraftInvoiceForSubscription(
   subscriptionId: string,
@@ -380,6 +381,8 @@ async function createDraftInvoiceForSubscription(
       subscription_id: subscriptionId,
       status: 'draft',
       amount_due_cents: amountDue,
+      subtotal_cents: amountDue,
+      total_cents: amountDue,
       issue_date: input.firstBillingDate,
       due_date: input.firstBillingDate,
     })
