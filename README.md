@@ -44,6 +44,11 @@ signed out goes to `/login` and returns you to that URL afterwards.
 - **There is always an admin.** The last admin can't be demoted or removed on their own; removing them
   asks who takes over, and that person is promoted (and approved, if pending) in the same step. This
   also holds if someone deletes the user from the Supabase dashboard.
+- **Inactivity timeout**: after 2 minutes with no mouse, keyboard, scroll or touch activity, people are
+  signed out and returned to the login page (and back to where they were after signing in), with a
+  20-second warning first. Activity in any tab keeps all tabs signed in, time away with the browser
+  closed or the computer asleep counts, and a timeout signs out only that browser. Change the limits in
+  `src/lib/idle.ts`.
 - Admins can approve or reject sign-ups, make others admins or members, and remove accounts. Only admins
   can change integration credentials.
 
