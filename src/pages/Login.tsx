@@ -6,6 +6,7 @@ import { ErrorBanner, Field, NoticeBanner } from '@/components/order-to-cash/lay
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { safeNextPath, useAuth, type AuthFlowError } from '@/lib/auth'
+import { IDLE_TIMEOUT_MS, signedOutReason } from '@/lib/idle'
 import { useAction } from '@/lib/use-async'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,7 @@ export function Login() {
   /** Set when a confirmation email is waiting: shows the "check your email" screen. */
   const [checkEmail, setCheckEmail] = useState<{ sentNow: boolean } | null>(null)
   const [unconfirmed, setUnconfirmed] = useState(false)
+  const [timedOut] = useState(() => signedOutReason() === 'idle')
   const action = useAction()
 
   if (loading) return <AuthLoading />
@@ -92,6 +94,12 @@ export function Login() {
                 ))}
               </div>
               <form className="space-y-4" onSubmit={submit}>
+                {timedOut && mode === 'sign_in' && (
+                  <NoticeBanner>
+                    For your security, you were signed out after {IDLE_TIMEOUT_MS / 60_000} minutes without activity.
+                    Sign in to pick up where you left off.
+                  </NoticeBanner>
+                )}
                 <Field label="Email">
                   <Input
                     type="email"

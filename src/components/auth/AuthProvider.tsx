@@ -1,8 +1,35 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { IdleTimeout } from '@/components/auth/IdleTimeout'
 import { getMyProfile, type AppUser } from '@/lib/api/users'
 import { AuthContext, friendlyAuthError, type AuthState } from '@/lib/auth'
+import { clearActivity, isIdleExpired, recordActivity, setSignedOutReason, type SignedOutReason } from '@/lib/idle'
 import { supabase } from '@/lib/supabase'
+
+/** Signs out this browser only; other devices stay signed in. */
+async function endSession(reason: SignedOutReason | null) {
+  setSignedOutReason(reason)
+  clearActivity()
+  await supabase.auth.signOut({ scope: 'local' })
+}
+
+/** A session restored from storage after more than the idle limit away is not accepted. */
+function restoredSession(session: Session | null): Session | null {
+  if (session && isIdleExpired(session.user.id)) {
+    // Deferred: this can run inside Supabase's auth-change callback, where calling
+    // other auth functions directly can deadlock.
+    setTimeout(() => void endSession('idle'), 0)
+    return null
+  }
+  return session
+}
+
+/** Starts the inactivity clock for a fresh sign-in and clears any "you were signed out" notice. */
+function startedSession(session: Session | null) {
+  if (!session) return
+  recordActivity(session.user.id)
+  setSignedOutReason(null)
+}
 
 /** Tracks the Supabase Auth session and the signed-in user's access record. */
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -13,11 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+      setSession(restoredSession(data.session))
       setSessionChecked(true)
     })
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next)
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(event === 'INITIAL_SESSION' ? restoredSession(next) : next)
       setSessionChecked(true)
     })
     return () => data.subscription.unsubscribe()
@@ -51,8 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile: current,
       isAdmin: current?.role === 'admin' && current.status === 'active',
       signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw friendlyAuthError(error)
+        startedSession(data.session)
       },
       signUp: async (email, password) => {
         const { data, error } = await supabase.auth.signUp({
@@ -61,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           options: { emailRedirectTo: `${window.location.origin}/login` },
         })
         if (error) throw friendlyAuthError(error)
+        startedSession(data.session)
         return { needsConfirmation: data.session == null }
       },
       resendConfirmation: async (email) => {
@@ -72,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw friendlyAuthError(error)
       },
       signOut: async () => {
-        await supabase.auth.signOut()
+        await endSession(null)
         setProfile(null)
       },
       refreshProfile: async () => {
@@ -81,5 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, sessionChecked, profile, userId, loadProfile])
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  const onIdleTimeout = useCallback(() => {
+    void endSession('idle').then(() => setProfile(null))
+  }, [])
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {userId && <IdleTimeout userId={userId} onTimeout={onIdleTimeout} />}
+    </AuthContext.Provider>
+  )
 }
