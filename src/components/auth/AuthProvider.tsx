@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getMyProfile, type AppUser } from '@/lib/api/users'
-import { AuthContext, type AuthState } from '@/lib/auth'
+import { AuthContext, friendlyAuthError, type AuthState } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 
 /** Tracks the Supabase Auth session and the signed-in user's access record. */
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: current?.role === 'admin' && current.status === 'active',
       signIn: async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        if (error) throw friendlyAuthError(error)
       },
       signUp: async (email, password) => {
         const { data, error } = await supabase.auth.signUp({
@@ -60,8 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password,
           options: { emailRedirectTo: `${window.location.origin}/login` },
         })
-        if (error) throw error
+        if (error) throw friendlyAuthError(error)
         return { needsConfirmation: data.session == null }
+      },
+      resendConfirmation: async (email) => {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: `${window.location.origin}/login` },
+        })
+        if (error) throw friendlyAuthError(error)
       },
       signOut: async () => {
         await supabase.auth.signOut()

@@ -59,6 +59,17 @@ directly with the public anon key; the screens are a convenience on top.
 3. Authentication › URL Configuration: set the **Site URL** to where the app is deployed and add
    `<your-app-url>/login` to the redirect URLs, so confirmation links come back to the app.
 
+4. Authentication › Emails › Templates › **Confirm signup**: set the subject to "Confirm your email
+   address" and paste `supabase/templates/confirm-signup.html` as the message body (add your logo and
+   company name where its top comment says).
+5. Authentication › Emails › **SMTP Settings**: connect your own email provider (e.g. Resend, Postmark,
+   SendGrid, Amazon SES) with a sender address on your domain. Supabase's built-in sender is for testing
+   only: it sends a few emails per hour and may only deliver to your Supabase team's addresses, so
+   confirmation emails to anyone else can silently never arrive.
+
+The sign-up screen lets people resend the confirmation email after 30 seconds (and again 30 seconds after
+each resend); signing in before confirming offers to send it again.
+
 If people already had accounts before `0006_auth.sql`, the earliest becomes the admin and the rest stay
 active members.
 
