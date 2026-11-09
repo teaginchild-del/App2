@@ -3,18 +3,24 @@ import type { RelatedRecord } from '@/lib/api/related-records'
 
 /**
  * End-to-end order-to-cash run through the real API modules and o2c_*
- * database functions. Needs a PostgREST in front of a database with
- * supabase/migrations applied and an `anon` role, e.g.
+ * database functions. Needs a PostgREST (with a JWT secret) in front of a
+ * database prepared with scripts/local-supabase-stub.sql and
+ * supabase/migrations, and a token for an approved user — see the README:
  *
- *   O2C_TEST_POSTGREST_URL=http://localhost:3000 npm test
+ *   O2C_TEST_POSTGREST_URL=http://localhost:3000 O2C_TEST_JWT=<token> npm test
  *
- * Skipped when the variable is unset.
+ * Skipped when the URL is unset.
  */
 const url = import.meta.env.O2C_TEST_POSTGREST_URL as string | undefined
 
 vi.mock('@/lib/supabase', async () => {
   const { PostgrestClient } = await import('@supabase/postgrest-js')
-  return { supabase: new PostgrestClient(import.meta.env.O2C_TEST_POSTGREST_URL ?? 'http://localhost:0') }
+  // Every request is made as an approved user (the database refuses anonymous callers).
+  return {
+    supabase: new PostgrestClient(import.meta.env.O2C_TEST_POSTGREST_URL ?? 'http://localhost:0', {
+      headers: { Authorization: `Bearer ${import.meta.env.O2C_TEST_JWT ?? ''}` },
+    }),
+  }
 })
 
 describe.skipIf(!url)('order-to-cash against Postgres', () => {
