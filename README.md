@@ -33,6 +33,46 @@ profile view.
 - Sidebar navigation with Billing and Accounting menus (Reports and some
   Configure pages are still placeholders)
 
+## Sign-in and access control
+
+Every page requires signing in with an email and password (Supabase Auth). Visiting any URL while
+signed out goes to `/login` and returns you to that URL afterwards.
+
+- **The first account to sign up becomes the admin** automatically.
+- **Later sign-ups wait for approval**: they see a "Waiting for approval" screen until an admin approves
+  them under Configure › Users.
+- **There is always an admin.** The last admin can't be demoted or removed on their own; removing them
+  asks who takes over, and that person is promoted (and approved, if pending) in the same step. This
+  also holds if someone deletes the user from the Supabase dashboard.
+- Admins can approve or reject sign-ups, make others admins or members, and remove accounts. Only admins
+  can change integration credentials.
+
+These rules live in the database (`supabase/migrations/0006_auth.sql`: Row Level Security on every
+table, plus triggers and admin-only functions), so they also apply to anyone calling the Supabase API
+directly with the public anon key; the screens are a convenience on top.
+
+### Supabase setup
+
+1. Apply the migrations in order, including `0006_auth.sql`.
+2. Authentication › Providers: enable **Email**. Leaving "Confirm email" on is recommended: new users
+   then confirm their address before they can sign in.
+3. Authentication › URL Configuration: set the **Site URL** to where the app is deployed and add
+   `<your-app-url>/login` to the redirect URLs, so confirmation links come back to the app.
+
+4. Authentication › Emails › Templates › **Confirm signup**: set the subject to "Confirm your email
+   address" and paste `supabase/templates/confirm-signup.html` as the message body (add your logo and
+   company name where its top comment says).
+5. Authentication › Emails › **SMTP Settings**: connect your own email provider (e.g. Resend, Postmark,
+   SendGrid, Amazon SES) with a sender address on your domain. Supabase's built-in sender is for testing
+   only: it sends a few emails per hour and may only deliver to your Supabase team's addresses, so
+   confirmation emails to anyone else can silently never arrive.
+
+The sign-up screen lets people resend the confirmation email after 30 seconds (and again 30 seconds after
+each resend); signing in before confirming offers to send it again.
+
+If people already had accounts before `0006_auth.sql`, the earliest becomes the admin and the rest stay
+active members.
+
 ## Order-to-cash billing engine
 
 Ported from App1's NetSuite-style engine. The flow is:
@@ -60,6 +100,11 @@ plus contracts and revenue recognition.
   reference or unique amount + date, receipt-grouping suggestions for unmatched lines, manual match/ignore.
 - **Contracts** (Billing › Contracts): per-item recurring billing through a contract-owned sales order,
   termination, and auto-renewal with price uplift (renewal order waits for approval).
+- **Related records**: every billing object (contract, sales order, subscription, invoice, payment,
+  deposit, bank deposit) has a card splitting linked records into **upstream** (origin — customer,
+  contract, order, subscription, deposits applied, invoices paid, receipts deposited) and **downstream**
+  (impact — orders, invoices, renewals, shipments, payments, refunds, unapplied credit, bank deposits,
+  statement matches, reminders), each linking to its own page.
 - **Billing Run** (Billing › Billing Run): the daily sweep — renewals, scheduled billing, revenue
   recognition, dunning. Every step is idempotent, so it is safe to re-run or catch up with a past date.
 
@@ -99,9 +144,25 @@ npm test        # billing engine unit tests
 Apply `supabase/migrations` in order to your Supabase project (`0005_order_to_cash.sql` is the billing
 engine).
 
-The order-to-cash integration test drives the real API modules against Postgres. It needs a PostgREST
-serving a database with the migrations applied and an `anon` role, and is skipped otherwise:
+### Integration tests
+
+These run against a plain local Postgres (no Supabase project needed). Prepare a scratch database with
+`scripts/local-supabase-stub.sql` (stand-ins for Supabase's roles and `auth` schema), then every file in
+`supabase/migrations`, in order.
+
+Access-control rules (first admin, approvals, "always an admin", what signed-out and pending users can
+reach), on a database where no one has signed up yet:
 
 ```bash
+psql -v ON_ERROR_STOP=1 -d <db> -f scripts/test-auth.sql
+```
+
+Order-to-cash API, through PostgREST: serve the database with a `jwt-secret`, insert an
+`auth.users` row (the first one becomes an approved admin), and mint a token for it:
+
+```bash
+O2C_TEST_JWT=$(node scripts/mint-test-jwt.mjs <jwt-secret> <user-id>) \
 O2C_TEST_POSTGREST_URL=http://localhost:3000 npm test
 ```
+
+Without `O2C_TEST_POSTGREST_URL` the integration test is skipped.

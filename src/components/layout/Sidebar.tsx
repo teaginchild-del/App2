@@ -11,6 +11,7 @@ import {
   HandCoins,
   Home,
   Landmark,
+  LogOut,
   Link2,
   ListChecks,
   Package,
@@ -22,12 +23,14 @@ import {
   Settings,
   Share2,
   Tag,
+  UserCog,
   Users,
   Wallet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -35,6 +38,8 @@ interface NavItem {
   label: string
   icon: LucideIcon
   disabled?: boolean
+  /** Only shown to admins. */
+  adminOnly?: boolean
 }
 
 interface NavGroup {
@@ -91,6 +96,7 @@ const configureGroup: NavGroup = {
     { to: '/configure/settings', label: 'Settings', icon: Cog, disabled: true },
     { to: '/configure/payment-gateways', label: 'Payment Gateways', icon: Banknote, disabled: true },
     { to: '/configure/integrations', label: 'Integrations', icon: Plug },
+    { to: '/configure/users', label: 'Users', icon: UserCog, adminOnly: true },
     { to: '/configure/custom-fields', label: 'Custom Fields', icon: ListChecks, disabled: true },
     { to: '/configure/invoicing', label: 'Invoicing', icon: FileText, disabled: true },
     { to: '/configure/referrals', label: 'Referrals', icon: Share2, disabled: true },
@@ -100,6 +106,8 @@ const configureGroup: NavGroup = {
 }
 
 export function Sidebar() {
+  const { isAdmin } = useAuth()
+  const configure = { ...configureGroup, items: configureGroup.items.filter((i) => isAdmin || !i.adminOnly) }
   return (
     <aside className="flex h-screen w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-white py-4">
       <div className="mb-6 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white">
@@ -118,7 +126,10 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <NavGroupMenu group={configureGroup} align="end" />
+      <div className="flex flex-col items-center gap-1">
+        <NavGroupMenu group={configure} align="end" />
+        <UserMenu />
+      </div>
     </aside>
   )
 }
@@ -249,5 +260,53 @@ function Tooltip({ label }: { label: string }) {
     <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
       {label}
     </span>
+  )
+}
+
+function UserMenu() {
+  const { session, profile, signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const email = session?.user.email ?? ''
+
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  return (
+    <div className="group relative" ref={containerRef}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Account"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold uppercase text-brand-700 hover:bg-brand-200"
+      >
+        {email.slice(0, 1) || '?'}
+      </button>
+      {!open && <Tooltip label={email} />}
+      {open && (
+        <div role="menu" className="absolute bottom-0 left-full z-20 ml-2 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1.5 shadow-lg">
+          <div className="border-b border-slate-100 px-3 pb-2 pt-1">
+            <div className="truncate text-sm font-medium text-ink">{email}</div>
+            <div className="text-xs text-ink-subtle">{profile?.role === 'admin' ? 'Admin' : 'Member'}</div>
+          </div>
+          <button
+            role="menuitem"
+            onClick={() => void signOut()}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-ink hover:bg-slate-50"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

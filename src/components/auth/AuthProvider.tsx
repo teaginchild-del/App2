@@ -1,0 +1,85 @@
+import type { Session } from '@supabase/supabase-js'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { getMyProfile, type AppUser } from '@/lib/api/users'
+import { AuthContext, friendlyAuthError, type AuthState } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+
+/** Tracks the Supabase Auth session and the signed-in user's access record. */
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [sessionChecked, setSessionChecked] = useState(false)
+  const [profile, setProfile] = useState<{ userId: string; value: AppUser | null } | null>(null)
+  const userId = session?.user.id ?? null
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setSessionChecked(true)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next)
+      setSessionChecked(true)
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  const loadProfile = useCallback(async (id: string) => {
+    try {
+      setProfile({ userId: id, value: await getMyProfile(id) })
+    } catch {
+      setProfile({ userId: id, value: null })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    let active = true
+    getMyProfile(userId).then(
+      (value) => active && setProfile({ userId, value }),
+      () => active && setProfile({ userId, value: null }),
+    )
+    return () => {
+      active = false
+    }
+  }, [userId])
+
+  const value = useMemo<AuthState>(() => {
+    const current = userId && profile?.userId === userId ? profile.value : null
+    return {
+      loading: !sessionChecked || (userId != null && profile?.userId !== userId),
+      session,
+      profile: current,
+      isAdmin: current?.role === 'admin' && current.status === 'active',
+      signIn: async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw friendlyAuthError(error)
+      },
+      signUp: async (email, password) => {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/login` },
+        })
+        if (error) throw friendlyAuthError(error)
+        return { needsConfirmation: data.session == null }
+      },
+      resendConfirmation: async (email) => {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: `${window.location.origin}/login` },
+        })
+        if (error) throw friendlyAuthError(error)
+      },
+      signOut: async () => {
+        await supabase.auth.signOut()
+        setProfile(null)
+      },
+      refreshProfile: async () => {
+        if (userId) await loadProfile(userId)
+      },
+    }
+  }, [session, sessionChecked, profile, userId, loadProfile])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}

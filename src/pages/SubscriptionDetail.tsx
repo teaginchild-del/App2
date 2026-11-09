@@ -2,6 +2,7 @@ import { ArrowLeft, Building2, CalendarClock, CalendarRange, Package, Tag } from
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { RelatedRecordsCard } from '@/components/order-to-cash/RelatedRecordsCard'
 import { SubscriptionStatusBadge } from '@/components/subscriptions/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { basePriceCents, summarizePricing } from '@/lib/billing-calculations'
@@ -147,6 +148,7 @@ export function SubscriptionDetail() {
               <InfoRow icon={Tag} label={coupon.name} value={coupon.discountType === 'percent' ? `${coupon.discountValue}% off` : `${formatCurrency(coupon.discountValue / 100)} off`} />
             </Section>
           )}
+          <RelatedRecordsCard type="subscription" id={subscription.id} refreshKey={subscription} />
         </div>
       </div>
     </div>

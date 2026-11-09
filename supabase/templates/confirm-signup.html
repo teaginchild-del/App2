@@ -1,0 +1,94 @@
+<!--
+  Supabase Auth email template: "Confirm signup"
+  Paste into Supabase: Authentication > Emails > Templates > Confirm signup (Message body, source view).
+  Suggested subject: Confirm your email address
+
+  Supabase fills in {{ .ConfirmationURL }}, {{ .Email }} and {{ .SiteURL }}.
+  To brand it, replace the square logo cell below with your logo image and add your company name
+  next to it, e.g. <img src="https://your-site/logo.png" width="36" height="36" alt="Your Company">.
+  Email clients ignore <style> blocks and modern CSS, so everything here is inline and table-based.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Confirm your email address</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f1f5f9;">
+    <!-- Inbox preview text -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+      Confirm your email address to finish creating your account.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+            <!-- Brand mark -->
+            <tr>
+              <td align="center" style="padding-bottom:24px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="36" height="36" align="center" valign="middle" style="background-color:#2563eb; border-radius:8px; color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:18px; font-weight:bold; line-height:36px;">
+                      &#10003;
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Card -->
+            <tr>
+              <td style="background-color:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:40px 36px; font-family:Arial, Helvetica, sans-serif; color:#0f172a;">
+                <h1 style="margin:0 0 16px 0; font-size:22px; line-height:30px; font-weight:bold; color:#0f172a;">
+                  Confirm your email address
+                </h1>
+                <p style="margin:0 0 16px 0; font-size:15px; line-height:24px; color:#334155;">
+                  Thanks for signing up. Please confirm that <strong style="color:#0f172a;">{{ .Email }}</strong> is your
+                  email address to finish creating your account.
+                </p>
+
+                <!-- Button (table-based so it renders in Outlook) -->
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#2563eb" style="border-radius:8px;">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:13px 28px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; line-height:20px; color:#ffffff; text-decoration:none; border-radius:8px; background-color:#2563eb;">
+                        Confirm email address
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin:0 0 8px 0; font-size:13px; line-height:20px; color:#64748b;">
+                  If the button doesn&rsquo;t work, copy and paste this link into your browser:
+                </p>
+                <p style="margin:0 0 24px 0; font-size:13px; line-height:20px; word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#2563eb; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                </p>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="border-top:1px solid #e2e8f0; padding-top:20px; font-size:13px; line-height:20px; color:#64748b;">
+                      For your security, this link expires soon and can only be used once. Once you&rsquo;ve confirmed,
+                      an admin may need to approve your account before you can sign in to the workspace.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td align="center" style="padding:24px 16px 0 16px; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; color:#94a3b8;">
+                If you didn&rsquo;t create an account, you can safely ignore this email &mdash; no account will be activated.<br />
+                Sent by <a href="{{ .SiteURL }}" target="_blank" style="color:#94a3b8; text-decoration:underline;">{{ .SiteURL }}</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

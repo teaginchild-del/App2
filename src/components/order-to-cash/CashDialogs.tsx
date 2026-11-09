@@ -12,12 +12,13 @@ import {
   listOpenInvoices,
   receiveCustomerPayment,
   recordCustomerDeposit,
+  refundCustomerDeposit,
   type OpenInvoiceSummary,
 } from '@/lib/api/cash'
 import { newIdempotencyKey } from '@/lib/api/o2c-shared'
 import { formatCents, formatDate } from '@/lib/format'
 import { useAction } from '@/lib/use-async'
-import type { O2cCustomer, SalesOrder } from '@/types/order-to-cash'
+import type { CustomerDeposit, O2cCustomer, SalesOrder } from '@/types/order-to-cash'
 
 /**
  * Receive a customer payment (check, ACH, wire, ...) against open invoices.
@@ -319,6 +320,52 @@ export function RecordDepositDialog({
           </Button>
           <Button onClick={submit} disabled={action.pending || !customerId || !(amountCents > 0)}>
             {action.pending ? 'Recording…' : 'Record deposit'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+/** Refund the unused part of a customer deposit. */
+export function RefundDepositDialog({
+  deposit,
+  onClose,
+  onDone,
+}: {
+  deposit: CustomerDeposit | null
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [amount, setAmount] = useState('')
+  const action = useAction()
+  if (!deposit) return null
+  const submit = async () => {
+    const cents = amount ? parseMoney(amount) : deposit.remainingCents
+    if (await action.run(() => refundCustomerDeposit(deposit, cents))) {
+      setAmount('')
+      onDone()
+      onClose()
+    }
+  }
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Refund deposit"
+      subtitle={`${formatCents(deposit.remainingCents)} unused on this deposit`}
+    >
+      <div className="space-y-4">
+        <Field label="Refund amount" hint="Leave blank to refund the full unused balance">
+          <MoneyInput value={amount} onChange={setAmount} placeholder={(deposit.remainingCents / 100).toFixed(2)} />
+        </Field>
+        <ErrorBanner message={action.error} />
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={action.pending}>
+            Refund
           </Button>
         </div>
       </div>

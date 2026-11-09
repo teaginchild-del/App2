@@ -1,26 +1,24 @@
 import { Banknote, PiggyBank, Plus, Undo2, Wallet } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { RecordDepositDialog, RecordPaymentDialog } from '@/components/order-to-cash/CashDialogs'
-import { ErrorBanner, Field, ListCard, SimpleTable, Td } from '@/components/order-to-cash/layout'
-import { MoneyInput } from '@/components/order-to-cash/inputs'
-import { parseMoney } from '@/components/order-to-cash/line-drafts'
+import { RecordDepositDialog, RecordPaymentDialog, RefundDepositDialog } from '@/components/order-to-cash/CashDialogs'
+import { ListCard, SimpleTable, Td } from '@/components/order-to-cash/layout'
 import { DepositStatusBadge } from '@/components/order-to-cash/StatusBadges'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
 import { StatCard } from '@/components/ui/stat-card'
-import { listDeposits, listPayments, refundCustomerDeposit } from '@/lib/api/cash'
+import { listDeposits, listPayments } from '@/lib/api/cash'
 import { listO2cCustomers } from '@/lib/api/o2c-shared'
 import { listSalesOrders } from '@/lib/api/sales-orders'
 import { formatCents, formatDate } from '@/lib/format'
-import { useAction, useAsync } from '@/lib/use-async'
+import { useAsync } from '@/lib/use-async'
 import { cn } from '@/lib/utils'
 import type { CustomerDeposit } from '@/types/order-to-cash'
 
 type Tab = 'payments' | 'deposits'
 
 export function Payments() {
+  const navigate = useNavigate()
   const { data, loading, error, reload } = useAsync(
     () => Promise.all([listPayments(), listDeposits(), listO2cCustomers(), listSalesOrders()]),
     [],
@@ -86,7 +84,11 @@ export function Payments() {
               empty={payments.length === 0 && 'No payments yet.'}
             >
               {payments.map((p) => (
-                <tr key={p.id}>
+                <tr
+                  key={p.id}
+                  className="cursor-pointer hover:bg-brand-50/40"
+                  onClick={() => navigate(`/payments/${p.id}`)}
+                >
                   <Td>{formatDate(p.receivedOn)}</Td>
                   <Td className="font-medium">{p.customer?.companyName}</Td>
                   <Td>{p.method.toUpperCase()}</Td>
@@ -98,7 +100,11 @@ export function Payments() {
                       : p.applications.map((a, i) => (
                           <span key={a.invoiceId}>
                             {i > 0 && ', '}
-                            <Link className="text-brand-600 hover:underline" to={`/invoices/${a.invoiceId}`}>
+                            <Link
+                              className="text-brand-600 hover:underline"
+                              to={`/invoices/${a.invoiceId}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {a.invoiceNumber}
                             </Link>{' '}
                             ({formatCents(a.amountCents)})
@@ -115,12 +121,20 @@ export function Payments() {
               empty={deposits.length === 0 && 'No deposits yet.'}
             >
               {deposits.map((d) => (
-                <tr key={d.id}>
+                <tr
+                  key={d.id}
+                  className="cursor-pointer hover:bg-brand-50/40"
+                  onClick={() => navigate(`/payments/deposits/${d.id}`)}
+                >
                   <Td>{formatDate(d.receivedOn)}</Td>
                   <Td className="font-medium">{d.customer?.companyName}</Td>
                   <Td>
                     {d.salesOrderId ? (
-                      <Link className="text-brand-600 hover:underline" to={`/sales-orders/${d.salesOrderId}`}>
+                      <Link
+                        className="text-brand-600 hover:underline"
+                        to={`/sales-orders/${d.salesOrderId}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {salesOrders.find((so) => so.id === d.salesOrderId)?.orderNumber ?? 'View'}
                       </Link>
                     ) : (
@@ -136,7 +150,14 @@ export function Payments() {
                   </Td>
                   <Td className="text-right">
                     {d.remainingCents > 0 && (
-                      <Button size="sm" variant="ghost" onClick={() => setRefunding(d)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setRefunding(d)
+                        }}
+                      >
                         <Undo2 className="h-4 w-4" />
                         Refund
                       </Button>
@@ -161,52 +182,7 @@ export function Payments() {
           salesOrders={salesOrders}
         />
       )}
-      <RefundDialog deposit={refunding} onClose={() => setRefunding(null)} onDone={reload} />
+      <RefundDepositDialog deposit={refunding} onClose={() => setRefunding(null)} onDone={reload} />
     </div>
-  )
-}
-
-function RefundDialog({
-  deposit,
-  onClose,
-  onDone,
-}: {
-  deposit: CustomerDeposit | null
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [amount, setAmount] = useState('')
-  const action = useAction()
-  if (!deposit) return null
-  const submit = async () => {
-    const cents = amount ? parseMoney(amount) : deposit.remainingCents
-    if (await action.run(() => refundCustomerDeposit(deposit, cents))) {
-      setAmount('')
-      onDone()
-      onClose()
-    }
-  }
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title="Refund deposit"
-      subtitle={`${formatCents(deposit.remainingCents)} unused on this deposit`}
-    >
-      <div className="space-y-4">
-        <Field label="Refund amount" hint="Leave blank to refund the full unused balance">
-          <MoneyInput value={amount} onChange={setAmount} placeholder={(deposit.remainingCents / 100).toFixed(2)} />
-        </Field>
-        <ErrorBanner message={action.error} />
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={action.pending}>
-            Refund
-          </Button>
-        </div>
-      </div>
-    </Dialog>
   )
 }

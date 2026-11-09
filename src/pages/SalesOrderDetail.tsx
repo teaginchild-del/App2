@@ -14,6 +14,7 @@ import {
   SimpleTable,
   Td,
 } from '@/components/order-to-cash/layout'
+import { RelatedRecordsCard } from '@/components/order-to-cash/RelatedRecordsCard'
 import {
   BillingEventStatusBadge,
   DepositStatusBadge,
@@ -306,9 +307,9 @@ export function SalesOrderDetail() {
             )}
             {deposits.map((d) => (
               <div key={d.id} className="mt-2 flex items-center justify-between gap-2 text-sm">
-                <span className="text-ink-muted">
+                <Link className="text-brand-600 hover:underline" to={`/payments/deposits/${d.id}`}>
                   {formatDate(d.receivedOn)} · {d.method.toUpperCase()}
-                </span>
+                </Link>
                 <span className="flex items-center gap-2">
                   {formatCents(d.amountCents)}
                   <DepositStatusBadge status={d.status} />
@@ -321,6 +322,7 @@ export function SalesOrderDetail() {
               </p>
             )}
           </Section>
+          <RelatedRecordsCard type="sales_order" id={order.id} refreshKey={data} />
         </div>
       </div>
 
